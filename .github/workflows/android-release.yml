@@ -83,6 +83,7 @@ jobs:
         run: |
           flutter build apk --release \
             --target-platform android-arm64 \
+            --dart-define "CLASHMI_BUILD_VERSION=${{ steps.version.outputs.name }}.${{ steps.version.outputs.number }}" \
             --build-name "${{ steps.version.outputs.name }}" \
             --build-number "${{ steps.version.outputs.number }}"
           mkdir -p dist
