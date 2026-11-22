@@ -1,0 +1,107 @@
+name: Android release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the app
+        uses: actions/checkout@v6
+        with:
+          path: clashmi
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.7"
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies and generate code
+        working-directory: clashmi
+        run: |
+          flutter pub get
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run dashboard tests
+        working-directory: clashmi
+        run: flutter test --no-pub test/screens/android_dashboard_test.dart
+
+      - name: Determine build version
+        id: version
+        working-directory: clashmi
+        run: |
+          version="$(sed -n 's/^version: *\([^+ ]*\)+\([0-9]*\).*/\1 \2/p' pubspec.yaml)"
+          read -r name code <<< "$version"
+          number="$((code + $(git rev-list --count "$GITHUB_SHA")))"
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+            name="${version%%+*}"
+            number="${version##*+}"
+          else
+            tag="v${name}+${number}"
+          fi
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore release signing key
+        if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/clashmi-dashboard-release.jks"
+
+      - name: Build arm64 Android APK
+        working-directory: clashmi
+        env:
+          CLASHMI_RELEASE_KEYSTORE: ${{ runner.temp }}/clashmi-dashboard-release.jks
+          CLASHMI_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CLASHMI_RELEASE_KEY_ALIAS: clashmi-dashboard
+          CLASHMI_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          flutter build apk --release \
+            --target-platform android-arm64 \
+            --build-name "${{ steps.version.outputs.name }}" \
+            --build-number "${{ steps.version.outputs.number }}"
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/clashmi-dashboard-android-arm64.apk
+          sha256sum dist/clashmi-dashboard-android-arm64.apk > dist/clashmi-dashboard-android-arm64.apk.sha256
+
+      - name: Save APK as a workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: clashmi-dashboard-android-arm64
+          path: clashmi/dist/*
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: clashmi
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            dist/clashmi-dashboard-android-arm64.apk \
+            dist/clashmi-dashboard-android-arm64.apk.sha256 \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes "Unofficial Clash Mi Android arm64 build with the dashboard layout. Package: com.nebula.clashmi.dashboard."

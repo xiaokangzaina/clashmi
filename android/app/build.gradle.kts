@@ -44,8 +44,12 @@ android {
     buildTypes {
         val keystore = rootProject.file("./key.properties")
         val prop = Properties().apply { keystore.inputStream().use(this::load) }
-        named("debug") { ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86") } }
+        named("debug") {
+            applicationIdSuffix = ".dashboard"
+            ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86") }
+        }
         named("profile") {
+            applicationIdSuffix = ".dashboard"
             signingConfig =
                     signingConfigs.create("profile") {
                         storeFile = rootProject.file(prop.getProperty("storeFile.release"))
@@ -56,26 +60,36 @@ android {
             ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64", "x86") }
         }
         named("release") {
+            applicationIdSuffix = ".dashboard"
+            val releaseKeystorePath = System.getenv("CLASHMI_RELEASE_KEYSTORE")
+            val releaseStorePassword = System.getenv("CLASHMI_RELEASE_STORE_PASSWORD")
+            val releaseKeyAlias = System.getenv("CLASHMI_RELEASE_KEY_ALIAS")
+            val releaseKeyPassword = System.getenv("CLASHMI_RELEASE_KEY_PASSWORD")
             signingConfig =
-                    signingConfigs.create("release") {
-                        storeFile = rootProject.file(prop.getProperty("storeFile.release"))
-                        storePassword = prop.getProperty("storePassword.release")
-                        keyAlias = prop.getProperty("keyAlias.release")
-                        keyPassword = prop.getProperty("keyPassword.release")
+                    if (!releaseKeystorePath.isNullOrBlank() &&
+                                    !releaseStorePassword.isNullOrBlank() &&
+                                    !releaseKeyAlias.isNullOrBlank() &&
+                                    !releaseKeyPassword.isNullOrBlank()) {
+                        signingConfigs.create("dashboardRelease") {
+                            storeFile = file(releaseKeystorePath)
+                            storePassword = releaseStorePassword
+                            keyAlias = releaseKeyAlias
+                            keyPassword = releaseKeyPassword
+                        }
+                    } else {
+                        signingConfigs.getByName("debug")
                     }
             ndk {
                 abiFilters.clear()
-                abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+                abiFilters += listOf("arm64-v8a")
                 // debugSymbolLevel = 'FULL'
             }
         }
     }
     splits {
         abi {
-            isEnable = true
-            isUniversalApk = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a")
+            isEnable = false
+            isUniversalApk = false
         }
     }
 }

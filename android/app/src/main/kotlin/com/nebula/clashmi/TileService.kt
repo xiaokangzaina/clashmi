@@ -27,13 +27,15 @@ class TileService : TileService() {
                         intent: Intent,
                 ) {
                     when (intent.action) {
-                        io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_START_RESULT -> {
-                            val err = intent.getStringExtra("err")
-                            updateTile(err == "")
-                        }
-                        io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_STOPED -> {
-                            updateTile(false)
-                        }
+                        com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_STATE_CHANGED ->
+                                when (
+                                        intent.getStringExtra(
+                                                com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.EXTRA_STATE
+                                        )
+                                ) {
+                                    "connected" -> updateTile(true)
+                                    "disconnected" -> updateTile(false)
+                                }
                     }
                 }
             }
@@ -42,9 +44,8 @@ class TileService : TileService() {
         if (!receiverRegistered) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 var intentFilter = IntentFilter()
-                intentFilter.addAction(io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_STOPED)
                 intentFilter.addAction(
-                        io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_START_RESULT
+                        com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_STATE_CHANGED
                 )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED)
@@ -69,11 +70,11 @@ class TileService : TileService() {
         if (isRuning()) {
             var intent =
                     Intent().apply {
-                        action = io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_STOP
+                        action = com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_STOP
                     }
             intent.setClassName(
                     getPackageName(),
-                    io.nebula.vpn_service.ClashVpnServiceImpl::class.java.name
+                    com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService::class.java.name
             )
             intent.putExtra("exitProcess", true)
             startService(intent)
@@ -136,10 +137,12 @@ class TileService : TileService() {
 
     private fun startByService() {
         var intent =
-                Intent().apply { action = io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_START }
+                Intent().apply {
+                    action = com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_START
+                }
         intent.setClassName(
                 getPackageName(),
-                io.nebula.vpn_service.ClashVpnServiceImpl::class.java.name
+                com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService::class.java.name
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -173,7 +176,9 @@ class TileService : TileService() {
     private fun isMainRuning(): Boolean = isServiceRuning(MainActivity::class.java.name)
 
     private fun isRuning(): Boolean =
-            isServiceRuning(io.nebula.vpn_service.ClashVpnServiceImpl::class.java.name)
+            isServiceRuning(
+                    com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService::class.java.name
+            )
 
     private fun isServiceRuning(serviceName: String): Boolean {
         try {

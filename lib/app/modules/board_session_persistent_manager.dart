@@ -12,7 +12,8 @@ import 'package:clashmi/app/modules/clash_setting_manager.dart';
 import 'package:clashmi/app/modules/setting_manager.dart';
 import 'package:clashmi/app/utils/file_utils.dart';
 import 'package:clashmi/app/utils/path_utils.dart';
-import 'package:libclash_vpn_service/state.dart';
+import 'package:clashmi/app/utils/secure_storage_utils.dart';
+import 'package:clashmi_vpn_service/state.dart';
 
 class BoardSessionLoginError {
   BoardSession? session;
@@ -269,6 +270,12 @@ class BoardSessionPersistentManager implements BoardSessionPersistent {
   }
 
   static Future<void> init() async {
+    const keyName = 'local_board_session_key_v1';
+    final existingKey = await SecureStorageUtils.read(keyName);
+    final sessionKey = Crypto.configure(existingKey);
+    if (sessionKey != existingKey) {
+      await SecureStorageUtils.write(keyName, sessionKey);
+    }
     _fileSaver.setSavePath(await PathUtils.boardSessionFilePath());
     await _instance._load();
     _instance.onVpnStateChanged();

@@ -78,7 +78,7 @@ dependencies:
   webdav_client_plus: 1.0.2
   android_package_manager: 0.7.1
   move_to_background: 1.0.2
-  libclash_vpn_service: 1.0.0
+  clashmi_vpn_service: 0.0.1
   board_service: 1.0.0
 
 dev_dependencies:
@@ -122,13 +122,12 @@ dependency_overrides:
     git:
       url: https://github.com/KaringX/move_to_background.git
       ref: 9720fa00946af134caf04b05702230d4329f857f
-  libclash_vpn_service:
-    path: ../libclash-vpn-service/
-    #git:
-      #url: https://github.com/KaringX/libclash-vpn-service.git
-      #ref: master
+  clashmi_vpn_service:
+    git:
+      url: https://github.com/cyenxchen/clashmi-vpn-service.git
+      ref: cf6923622e1c3d482b4b2cde7fa556d9d0f7cae6
   board_service:
-    path: ../board-service/
+    path: third_party/board-service/
     #git:
       #url: https://github.com/KaringX/board-service.git
       #ref: master
@@ -170,4 +169,3 @@ flutter_launcher_icons: #flutter pub run flutter_launcher_icons
   macos:
     generate: true
     image_path: logo-round-macos.png
- 

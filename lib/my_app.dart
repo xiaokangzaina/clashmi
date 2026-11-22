@@ -24,7 +24,7 @@ import 'package:clashmi/windows_bounds.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:libclash_vpn_service/vpn_service.dart';
+import 'package:clashmi_vpn_service/vpn_service.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 

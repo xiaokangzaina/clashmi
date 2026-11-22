@@ -1,0 +1,9 @@
+name: board_service
+version: 1.0.0
+publish_to: none
+environment:
+  sdk: '>=3.12.2 <4.0.0'
+dependencies:
+  crypto: ^3.0.7
+  encrypt: ^5.0.3
+  tuple: ^2.0.2

@@ -23,7 +23,7 @@ class AutomationCommandReceiver : BroadcastReceiver() {
 
     private fun connect(context: Context) {
         val serviceIntent = createServiceIntent(context)
-        serviceIntent.action = io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_START
+        serviceIntent.action = com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_START
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent)
         } else {
@@ -33,7 +33,7 @@ class AutomationCommandReceiver : BroadcastReceiver() {
 
     private fun disconnect(context: Context) {
         val serviceIntent = createServiceIntent(context)
-        serviceIntent.action = io.nebula.vpn_service.ClashVpnServiceImpl.ACTION_STOP
+        serviceIntent.action = com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_STOP
         context.startService(serviceIntent)
     }
 
@@ -46,7 +46,7 @@ class AutomationCommandReceiver : BroadcastReceiver() {
         val serviceIntent = Intent()
         serviceIntent.setClassName(
                 context.packageName,
-                io.nebula.vpn_service.ClashVpnServiceImpl::class.java.name
+                com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService::class.java.name
         )
         serviceIntent.putExtra("actionBy", "automation")
         serviceIntent.putExtra("source", "broadcast")

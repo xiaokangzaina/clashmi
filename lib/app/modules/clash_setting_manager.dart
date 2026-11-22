@@ -18,7 +18,7 @@ import 'package:clashmi/app/utils/path_utils.dart';
 import 'package:clashmi/i18n/strings.g.dart';
 import 'package:flutter/services.dart';
 
-import 'package:libclash_vpn_service/proxy_manager.dart';
+import 'package:clashmi_vpn_service/proxy_manager.dart';
 import 'package:path/path.dart' as path;
 
 class ClashSettingManager {

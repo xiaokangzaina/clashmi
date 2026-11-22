@@ -373,8 +373,9 @@ class AndroidDashboard extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             appRouting,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(color: colors.ink),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: colors.ink),
           ),
           const SizedBox(height: 7),
           Text(
@@ -401,8 +402,10 @@ class AndroidDashboard extends StatelessWidget {
               name.isEmpty ? '—' : name.replaceAll(' -> ', ' → '),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(color: colors.link, height: 1.32),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: colors.link,
+                height: 1.32,
+              ),
             ),
           ),
         ],
@@ -488,8 +491,9 @@ class AndroidDashboard extends StatelessWidget {
               status == AndroidTunnelStatus.stopped
                   ? '0'
                   : data.connections?.toString() ?? '—',
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(color: colors.ink),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: colors.ink),
             ),
           ),
         ],
@@ -645,8 +649,9 @@ class _CardHeading extends StatelessWidget {
         Flexible(
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall
-                ?.copyWith(color: colors.ink),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: colors.ink),
           ),
         ),
       ],
