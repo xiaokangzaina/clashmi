@@ -67,7 +67,6 @@ jobs:
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Restore release signing key
-        if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
