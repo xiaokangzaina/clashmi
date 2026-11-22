@@ -277,6 +277,13 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
       color = theme.colorScheme.surface;
     }
 
+    final androidBody = Platform.isAndroid
+        ? HomeScreenWidgetPart1(
+            hasDecoration: hasBackgroundDecoration,
+            onSettingsChanged: () => setState(() {}),
+          )
+        : null;
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: Size.zero,
@@ -284,8 +291,7 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
           systemOverlayStyle: SystemUiOverlayStyle(
             systemNavigationBarIconBrightness: decoration == null
                 ? themes.getStatusBarIconBrightness(context)
-                : Brightness
-                      .light, //must be light if has decoration, or transparent does not work if light theme on android
+                : Brightness.light, //must be light if has decoration, or transparent does not work if light theme on android
             systemNavigationBarColor: decoration == null
                 ? color
                 : Colors.transparent,
@@ -300,55 +306,57 @@ class _HomeScreenState extends LasyRenderingState<HomeScreen>
         width: double.infinity,
         height: double.infinity,
         decoration: decoration,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
+        child:
+            androidBody ??
+            SafeArea(
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          AppUtils.getName(),
-                          style: const TextStyle(
-                            fontWeight: ThemeConfig.kFontWeightTitle,
-                            fontSize: ThemeConfig.kFontSizeTitle,
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 15, 20, 0),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        HomeScreenWidgetPart1(
-                          hasDecoration: hasBackgroundDecoration,
-                        ),
-                        SizedBox(height: 15),
-                        HomeScreenWidgetPart2(
-                          hasDecoration: hasBackgroundDecoration,
-                          onUpdate: () {
-                            setState(() {});
-                          },
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppUtils.getName(),
+                              style: const TextStyle(
+                                fontWeight: ThemeConfig.kFontWeightTitle,
+                                fontSize: ThemeConfig.kFontSizeTitle,
+                              ),
+                            ),
+                            SizedBox(height: 10),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 15, 20, 0),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            HomeScreenWidgetPart1(
+                              hasDecoration: hasBackgroundDecoration,
+                            ),
+                            SizedBox(height: 15),
+                            HomeScreenWidgetPart2(
+                              hasDecoration: hasBackgroundDecoration,
+                              onUpdate: () {
+                                setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
       ),
     );
   }

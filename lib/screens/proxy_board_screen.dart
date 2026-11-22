@@ -14,7 +14,9 @@ class ProxyBoardScreen extends LasyRenderingStatefulWidget {
     return const RouteSettings(name: "/");
   }
 
-  const ProxyBoardScreen({super.key});
+  const ProxyBoardScreen({super.key, this.embeddedTitle});
+
+  final String? embeddedTitle;
 
   @override
   State<ProxyBoardScreen> createState() => _ProxyBoardScreenState();
@@ -49,10 +51,13 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
   @override
   Widget build(BuildContext context) {
     final tcontext = Translations.of(context);
-    Size windowSize = MediaQuery.of(context).size;
+    final embedded = widget.embeddedTitle != null;
 
     return Scaffold(
-      appBar: PreferredSize(preferredSize: Size.zero, child: AppBar()),
+      backgroundColor: embedded ? Colors.transparent : null,
+      appBar: embedded
+          ? null
+          : PreferredSize(preferredSize: Size.zero, child: AppBar()),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
@@ -61,18 +66,18 @@ class _ProxyBoardScreenState extends LasyRenderingState<ProxyBoardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const SizedBox(
-                      width: 50,
-                      height: 30,
-                      child: Icon(Icons.arrow_back_ios_outlined, size: 26),
+                  if (!embedded)
+                    InkWell(
+                      onTap: () => Navigator.pop(context),
+                      child: const SizedBox(
+                        width: 50,
+                        height: 30,
+                        child: Icon(Icons.arrow_back_ios_outlined, size: 26),
+                      ),
                     ),
-                  ),
-                  SizedBox(
-                    width: windowSize.width - 50 * 3,
+                  Expanded(
                     child: Text(
-                      tcontext.meta.proxy,
+                      widget.embeddedTitle ?? tcontext.meta.proxy,
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

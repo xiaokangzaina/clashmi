@@ -26,10 +26,12 @@ import 'package:clashmi/app/utils/platform_utils.dart';
 import 'package:clashmi/app/utils/vpn_action_handler.dart';
 import 'package:clashmi/i18n/strings.g.dart';
 import 'package:clashmi/screens/about_screen.dart';
+import 'package:clashmi/screens/android_dashboard.dart';
 import 'package:clashmi/screens/dialog_utils.dart';
 import 'package:clashmi/screens/file_view_screen.dart';
 import 'package:clashmi/screens/group_helper.dart';
 import 'package:clashmi/screens/net_check_screen.dart';
+import 'package:clashmi/screens/perapp_android_screen.dart';
 import 'package:clashmi/screens/profiles_board_screen.dart';
 import 'package:clashmi/screens/proxy_board_screen.dart';
 import 'package:clashmi/screens/richtext_viewer.screen.dart';
@@ -59,7 +61,12 @@ class ProxyHttpOverrides extends HttpOverrides {
 
 class HomeScreenWidgetPart1 extends StatefulWidget {
   final bool Function() hasDecoration;
-  const HomeScreenWidgetPart1({super.key, required this.hasDecoration});
+  final VoidCallback? onSettingsChanged;
+  const HomeScreenWidgetPart1({
+    super.key,
+    required this.hasDecoration,
+    this.onSettingsChanged,
+  });
 
   @override
   State<HomeScreenWidgetPart1> createState() => _HomeScreenWidgetPart1();
@@ -83,6 +90,13 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   );
   final ValueNotifier<String> _proxyNow = ValueNotifier<String>("");
   bool _proxyNowUpdating = false;
+  AndroidDashboardTab _androidTab = AndroidDashboardTab.dashboard;
+  final _androidTraffic = ValueNotifier(const AndroidDashboardTraffic());
+  final _androidElapsed = ValueNotifier(Duration.zero);
+  final _androidSessionTime = Stopwatch();
+  int _androidTrafficGeneration = 0;
+  bool _androidTogglePending = false;
+  bool _androidModePending = false;
 
   @override
   void initState() {
@@ -105,12 +119,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       }
       await _onInitAllFinish();
     });
-    ClashSettingManager.onEventModeChanged.add(() async {
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
-    });
+    ClashSettingManager.onEventModeChanged.add(_onModeChanged);
   }
 
   @override
@@ -122,6 +131,14 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     ProfileManager.onEventUpdate.remove(_onUpdate);
     BoardProviderNoticeManager.onEventCheck.remove(_onNoticeUpdate);
     BoardProviderNoticeManager.onEventReaded.remove(_onNoticeReaded);
+    ClashSettingManager.onEventModeChanged.remove(_onModeChanged);
+    _timerStateChecker?.cancel();
+    _timerConnectToCore?.cancel();
+    _trafficSpeed.dispose();
+    _trafficTotal.dispose();
+    _proxyNow.dispose();
+    _androidTraffic.dispose();
+    _androidElapsed.dispose();
     _focusNodeConnect.dispose();
     super.dispose();
   }
@@ -182,6 +199,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isAndroid) {
+      return _buildAndroidDashboard(context);
+    }
     final tcontext = Translations.of(context);
     final theme = Theme.of(context);
 
@@ -643,6 +663,201 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     );
   }
 
+  Widget _buildAndroidDashboard(BuildContext context) {
+    final tcontext = Translations.of(context);
+    final locale = LocaleSettings.currentLocale.flutterLocale;
+    final labels = AndroidDashboardLabels(
+      locale.languageCode,
+      locale.countryCode,
+    );
+    final connected = _state == FlutterVpnServiceState.connected;
+    final transitioning =
+        _state == FlutterVpnServiceState.connecting ||
+        _state == FlutterVpnServiceState.disconnecting ||
+        _state == FlutterVpnServiceState.reasserting;
+    final perApp = ClashSettingManager.getConfig().Extension?.Tun.perApp;
+    final tabContent = switch (_androidTab) {
+      AndroidDashboardTab.dashboard => null,
+      AndroidDashboardTab.services => ProfilesBoardScreen(
+        embeddedTitle: labels.services,
+      ),
+      AndroidDashboardTab.nodes =>
+        connected
+            ? ProxyBoardScreen(embeddedTitle: labels.nodes)
+            : Center(child: Text(tcontext.meta.disconnected)),
+      AndroidDashboardTab.settings => _buildAndroidSettings(context, connected),
+    };
+
+    return PopScope(
+      canPop: _androidTab == AndroidDashboardTab.dashboard,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _selectAndroidTab(AndroidDashboardTab.dashboard);
+        }
+      },
+      child: AndroidDashboard(
+        labels: labels,
+        tab: _androidTab,
+        tabContent: tabContent,
+        onTabChanged: _selectAndroidTab,
+        settingsLabel: tcontext.meta.setting,
+        status: connected
+            ? AndroidTunnelStatus.running
+            : transitioning
+            ? AndroidTunnelStatus.transitioning
+            : AndroidTunnelStatus.stopped,
+        statusLabel: connected
+            ? labels.running
+            : _state == FlutterVpnServiceState.disconnecting
+            ? tcontext.meta.disconnect
+            : transitioning
+            ? tcontext.meta.connecting
+            : tcontext.meta.disconnected,
+        toggleLabel: connected
+            ? tcontext.meta.disconnect
+            : tcontext.meta.connect,
+        onToggle: transitioning || _androidTogglePending
+            ? null
+            : _toggleAndroidVpn,
+        traffic: _androidTraffic,
+        formatTraffic: ClashHttpApi.convertTrafficToStringDouble,
+        uptime: _androidElapsed,
+        service: _proxyNow,
+        outboundModes: [
+          tcontext.meta.rule,
+          tcontext.meta.global,
+          tcontext.meta.direct,
+        ],
+        selectedMode: ClashSettingManager.getConfigsMode().index,
+        onModeChanged: _androidModePending ? null : _setAndroidMode,
+        appRouting: perApp?.Enable != true
+            ? labels.allApps
+            : perApp?.WhiteList == true
+            ? tcontext.PerAppAndroidScreen.whiteListMode
+            : tcontext.PerAppAndroidScreen.title,
+        appRuleCount: perApp?.PackageIds?.length ?? 0,
+        onAppRouting: _openAppRouting,
+        onCurrentService: () => _selectAndroidTab(
+          connected ? AndroidDashboardTab.nodes : AndroidDashboardTab.services,
+        ),
+        onConnections: connected ? _onTapBoard : null,
+        hasBackgroundDecoration: widget.hasDecoration(),
+      ),
+    );
+  }
+
+  Widget _buildAndroidSettings(BuildContext context, bool connected) {
+    final tcontext = Translations.of(context);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 26, 18, 8),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
+          child: Text(
+            tcontext.meta.setting,
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
+        ),
+        HomeScreenWidgetPart2(
+          hasDecoration: widget.hasDecoration,
+          onUpdate: () {
+            widget.onSettingsChanged?.call();
+            if (mounted) {
+              setState(() {});
+            }
+          },
+        ),
+        if (connected)
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.dashboard_outlined),
+                  title: Text(tcontext.meta.board),
+                  onTap: _onTapBoard,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.file_present_outlined),
+                  title: Text(tcontext.meta.runtimeProfile),
+                  onTap: _onTapRunTimeProfile,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.network_check_outlined),
+                  title: Text(tcontext.meta.networkCheck),
+                  onTap: _onTapNetCheck,
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _selectAndroidTab(AndroidDashboardTab tab) {
+    if (_androidTab == tab) {
+      return;
+    }
+    setState(() => _androidTab = tab);
+    if (tab == AndroidDashboardTab.dashboard) {
+      _updateProxyNow();
+    }
+  }
+
+  Future<void> _toggleAndroidVpn() async {
+    setState(() => _androidTogglePending = true);
+    try {
+      if (_state == FlutterVpnServiceState.connected) {
+        await stop();
+      } else {
+        await start("switch");
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _androidTogglePending = false);
+      }
+    }
+  }
+
+  Future<void> _setAndroidMode(int index) async {
+    setState(() => _androidModePending = true);
+    try {
+      final error = await ClashSettingManager.setConfigsMode(
+        ClashConfigsMode.values[index],
+      );
+      if (!mounted) {
+        return;
+      }
+      if (error != null) {
+        DialogUtils.showAlertDialog(context, error.message, withVersion: true);
+        return;
+      }
+      await _updateProxyNow();
+    } finally {
+      if (mounted) {
+        setState(() => _androidModePending = false);
+      }
+    }
+  }
+
+  Future<void> _openAppRouting() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        settings: PerAppAndroidScreen.routeSettings(),
+        builder: (context) => const PerAppAndroidScreen(),
+      ),
+    );
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onModeChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   Widget _buildWithTrafficSpeedValue(
     BuildContext context,
     String value,
@@ -830,10 +1045,19 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     FlutterVpnServiceState state,
     Map<String, String> params,
   ) async {
-    if (_state == state) {
+    if (!mounted || _state == state) {
       return;
     }
     _state = state;
+    if (Platform.isAndroid) {
+      _androidSessionTime
+        ..stop()
+        ..reset();
+      _androidElapsed.value = Duration.zero;
+      if (state == FlutterVpnServiceState.connected) {
+        _androidSessionTime.start();
+      }
+    }
     if (state == FlutterVpnServiceState.disconnected) {
       _disconnectToCore();
       Biz.vpnStateChanged(false);
@@ -841,6 +1065,9 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     } else if (state == FlutterVpnServiceState.connected) {
       if (!AppLifecycleStateNofity.isPaused()) {
         _connectToCore();
+        if (Platform.isAndroid) {
+          _updateProxyNow();
+        }
       }
       Biz.vpnStateChanged(true);
     } else if (state == FlutterVpnServiceState.reasserting) {
@@ -904,6 +1131,11 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   Future<void> _checkState() async {
     var state = await VPNService.getState();
     await _onStateChanged(state, {});
+    if (mounted && Platform.isAndroid && _androidSessionTime.isRunning) {
+      _androidElapsed.value = Duration(
+        seconds: _androidSessionTime.elapsed.inSeconds,
+      );
+    }
   }
 
   void _startStateCheckTimer() {
@@ -926,24 +1158,53 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> _updateConnections() async {
-    String connections = await FlutterVpnService.clashiApiConnections(false);
-    String tranffic = await FlutterVpnService.clashiApiTraffic();
+    final android = Platform.isAndroid;
+    final generation = _androidTrafficGeneration;
+    final previous = _androidTraffic.value;
+    String connections;
+    String trafficJson;
+    try {
+      connections = await FlutterVpnService.clashiApiConnections(android);
+      trafficJson = await FlutterVpnService.clashiApiTraffic();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || (android && generation != _androidTrafficGeneration)) {
+      return;
+    }
 
     String trafficTotalNew = "";
     String trafficSpeedNew = "";
+    num uploadTotal = previous.uploadTotal;
+    num downloadTotal = previous.downloadTotal;
+    int? connectionCount = previous.connections;
+    ClashTraffic? trafficSample;
     try {
       var obj = jsonDecode(connections);
       ClashConnections body = ClashConnections();
       body.fromJson(obj, false);
+      if (android && obj is Map<String, dynamic>) {
+        uploadTotal = body.uploadTotal;
+        downloadTotal = body.downloadTotal;
+        final active = obj['connections'];
+        if (active is List) {
+          connectionCount = active.length;
+        } else if (obj.containsKey('connections') && active == null) {
+          connectionCount = 0;
+        }
+      }
       //_memory.value =
       //    ClashHttpApi.convertTrafficToStringDouble(body.memory);
       trafficTotalNew =
           "↑ ${ClashHttpApi.convertTrafficToStringDouble(body.uploadTotal)}  ↓ ${ClashHttpApi.convertTrafficToStringDouble(body.downloadTotal)} ";
     } catch (err) {}
     try {
-      var obj = jsonDecode(tranffic);
+      var obj = jsonDecode(trafficJson);
       ClashTraffic traffic = ClashTraffic();
       traffic.fromJson(obj);
+      if (obj is Map<String, dynamic>) {
+        trafficSample = traffic;
+      }
       trafficSpeedNew =
           "↑ ${ClashHttpApi.convertTrafficToStringDouble(traffic.upload)}/s  ↓ ${ClashHttpApi.convertTrafficToStringDouble(traffic.download)}/s";
     } catch (err) {}
@@ -953,24 +1214,60 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
     }
     _trafficTotal.value = trafficTotalNew;
     _trafficSpeed.value = trafficSpeedNew;
+    if (android && _state == FlutterVpnServiceState.connected) {
+      final history = _androidTraffic.value.history;
+      _androidTraffic.value = AndroidDashboardTraffic(
+        uploadSpeed: trafficSample?.upload ?? previous.uploadSpeed,
+        downloadSpeed: trafficSample?.download ?? previous.downloadSpeed,
+        uploadTotal: uploadTotal,
+        downloadTotal: downloadTotal,
+        connections: connectionCount,
+        history: trafficSample == null
+            ? history
+            : List<double>.unmodifiable([
+                ...history.skip(history.length >= 36 ? history.length - 35 : 0),
+                (trafficSample.upload + trafficSample.download).toDouble(),
+              ]),
+      );
+    }
   }
 
   Future<void> _connectToCore() async {
+    final generation = _androidTrafficGeneration;
     bool started = await VPNService.getStarted();
-    if (!started) {
+    if (!mounted || !started || generation != _androidTrafficGeneration) {
       return;
     }
     if (AppLifecycleStateNofity.isPaused()) {
       return;
     }
     await _updateConnections();
+    if (!mounted ||
+        generation != _androidTrafficGeneration ||
+        AppLifecycleStateNofity.isPaused()) {
+      return;
+    }
     const Duration duration = Duration(seconds: 1);
+    bool reading = false;
     _timerConnectToCore ??= Timer.periodic(duration, (timer) async {
-      if (AppLifecycleStateNofity.isPaused()) {
+      if (AppLifecycleStateNofity.isPaused() || reading) {
         return;
       }
-      await _updateConnections();
-      if (_proxyNow.value.isEmpty) {
+      reading = true;
+      try {
+        await _updateConnections();
+      } finally {
+        reading = false;
+      }
+      if (!mounted || !timer.isActive) {
+        return;
+      }
+      if (Platform.isAndroid) {
+        if (_androidTab == AndroidDashboardTab.dashboard &&
+            (_proxyNow.value.isEmpty || timer.tick % 5 == 0)) {
+          _updateProxyNow();
+        }
+      } else if (_proxyNow.value.isEmpty) {
         Future.delayed(Duration(seconds: 1), () async {
           _updateProxyNow();
         });
@@ -979,6 +1276,7 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
   }
 
   Future<void> _disconnectToCore({bool resetUI = true}) async {
+    _androidTrafficGeneration++;
     _timerConnectToCore?.cancel();
     _timerConnectToCore = null;
     if (resetUI) {
@@ -987,10 +1285,16 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       Biz.trafficChanged("", "");
       // _memory.value = _kNoMemory;
       _proxyNow.value = "";
+      if (Platform.isAndroid) {
+        _androidTraffic.value = const AndroidDashboardTraffic();
+      }
     }
   }
 
   Future<void> _updateProxyNow() async {
+    if (!mounted) {
+      return;
+    }
     if (_state == FlutterVpnServiceState.connected) {
       if (AppLifecycleStateNofity.isPaused()) {
         return;
@@ -1000,30 +1304,33 @@ class _HomeScreenWidgetPart1 extends State<HomeScreenWidgetPart1> {
       }
       _proxyNowUpdating = true;
 
-      final result = await ClashHttpApi.getNowProxy(
-        ClashSettingManager.getConfig().Mode ?? ClashConfigsMode.rule.name,
-      );
-      if (result.error != null || result.data!.isEmpty) {
-        _proxyNow.value = "";
-      } else {
-        if (result.data!.length >= 2) {
-          if (result.data!.first.delay != null) {
-            _proxyNow.value =
-                "${result.data![1].name} -> ${result.data!.first.name} (${result.data!.first.delay} ms)";
-          } else {
-            _proxyNow.value =
-                "${result.data![1].name} -> ${result.data!.first.name}";
-          }
-        } else {
-          if (result.data!.first.delay != null) {
-            _proxyNow.value =
-                "${result.data!.first.name} (${result.data!.first.delay} ms)";
-          } else {
-            _proxyNow.value = result.data!.first.name;
-          }
-        }
+      final mode = ClashSettingManager.getConfigsMode();
+      final generation = _androidTrafficGeneration;
+      final ReturnResult<List<ClashProxiesNode>> result;
+      try {
+        result = await ClashHttpApi.getNowProxy(mode.name);
+      } finally {
+        _proxyNowUpdating = false;
       }
-      _proxyNowUpdating = false;
+      if (!mounted ||
+          _state != FlutterVpnServiceState.connected ||
+          generation != _androidTrafficGeneration) {
+        return;
+      }
+      if (mode != ClashSettingManager.getConfigsMode()) {
+        _updateProxyNow();
+        return;
+      }
+      final nodes = result.data;
+      if (result.error != null || nodes == null || nodes.isEmpty) {
+        _proxyNow.value = "";
+        return;
+      }
+      final node = nodes.first;
+      final path = nodes.length >= 2
+          ? "${nodes[1].name} -> ${node.name}"
+          : node.name;
+      _proxyNow.value = node.delay == null ? path : "$path (${node.delay} ms)";
     } else {
       _proxyNow.value = "";
     }
