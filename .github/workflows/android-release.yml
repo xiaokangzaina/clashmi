@@ -34,11 +34,9 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve dependencies and generate code
+      - name: Resolve dependencies
         working-directory: clashmi
-        run: |
-          flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+        run: flutter pub get
 
       - name: Run dashboard tests
         working-directory: clashmi
