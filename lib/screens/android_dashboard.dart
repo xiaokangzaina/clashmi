@@ -138,14 +138,12 @@ class AndroidDashboard extends StatelessWidget {
     final busy = status == AndroidTunnelStatus.transitioning;
     return SingleChildScrollView(
       key: const PageStorageKey('android-dashboard'),
-      padding: const EdgeInsets.fromLTRB(18, 24, 18, 8),
+      padding: const EdgeInsets.fromLTRB(18, 44, 18, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _DashboardCard(
-            colors: colors,
-            color: colors.selected,
-            padding: const EdgeInsets.all(18),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 4),
             child: Row(
               children: [
                 Expanded(
@@ -178,41 +176,34 @@ class AndroidDashboard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Tooltip(
-                  message: toggleLabel,
-                  child: FilledButton.tonal(
-                    onPressed: onToggle,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(56, 56),
-                      padding: EdgeInsets.zero,
-                      backgroundColor: colors.button,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: busy
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Icon(
-                            running
-                                ? Icons.pause_rounded
-                                : Icons.power_settings_new,
-                            size: 28,
-                          ),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: running ? colors.green : colors.selected,
                   ),
+                  alignment: Alignment.center,
+                  child: busy
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: colors.blue,
+                          ),
+                        )
+                      : Icon(
+                          running
+                              ? Icons.check_rounded
+                              : Icons.power_off_outlined,
+                          color: running ? Colors.white : colors.muted,
+                          size: 29,
+                        ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          _buildServiceCard(context, colors),
-          const SizedBox(height: 12),
+          const SizedBox(height: 11),
           ValueListenableBuilder<AndroidDashboardTraffic>(
             valueListenable: traffic,
             builder: (context, data, child) => _DashboardCard(
@@ -242,7 +233,7 @@ class AndroidDashboard extends StatelessWidget {
                     ),
                   ),
                   SizedBox(
-                    height: 100,
+                    height: 123,
                     child: CustomPaint(
                       painter: _SpeedChart(data.history, colors.blue),
                     ),
@@ -256,6 +247,7 @@ class AndroidDashboard extends StatelessWidget {
             builder: (context, constraints) {
               final mode = _buildModeCard(colors);
               final apps = _buildAppRoutingCard(context, colors);
+              final current = _buildServiceCard(context, colors);
               final usage = _buildTrafficCard(context, colors);
               final connections = _buildConnectionsCard(context, colors);
               const gap = SizedBox(height: 14);
@@ -263,7 +255,17 @@ class AndroidDashboard extends StatelessWidget {
                   MediaQuery.textScalerOf(context).scale(16) > 22) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [mode, gap, apps, gap, usage, gap, connections],
+                  children: [
+                    mode,
+                    gap,
+                    current,
+                    gap,
+                    apps,
+                    gap,
+                    usage,
+                    gap,
+                    connections,
+                  ],
                 );
               }
               return Row(
@@ -272,14 +274,14 @@ class AndroidDashboard extends StatelessWidget {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [mode, gap, connections],
+                      children: [mode, gap, apps],
                     ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [apps, gap, usage],
+                      children: [current, gap, usage, gap, connections],
                     ),
                   ),
                 ],
@@ -371,9 +373,8 @@ class AndroidDashboard extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             appRouting,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: colors.ink),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: colors.ink),
           ),
           const SizedBox(height: 7),
           Text(
@@ -389,31 +390,21 @@ class AndroidDashboard extends StatelessWidget {
     return _DashboardCard(
       colors: colors,
       onTap: onCurrentService,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _CardHeading(Icons.hub_outlined, labels.currentService, colors),
-                const SizedBox(height: 7),
-                ValueListenableBuilder<String>(
-                  valueListenable: service,
-                  builder: (context, name, child) => Text(
-                    name.isEmpty ? '—' : name.replaceAll(' -> ', ' → '),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colors.link,
-                      height: 1.32,
-                    ),
-                  ),
-                ),
-              ],
+          _CardHeading(Icons.hub_outlined, labels.currentService, colors),
+          const SizedBox(height: 14),
+          ValueListenableBuilder<String>(
+            valueListenable: service,
+            builder: (context, name, child) => Text(
+              name.isEmpty ? '—' : name.replaceAll(' -> ', ' → '),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: colors.link, height: 1.32),
             ),
           ),
-          const SizedBox(width: 12),
-          Icon(Icons.chevron_right_rounded, color: colors.muted),
         ],
       ),
     );
@@ -497,9 +488,8 @@ class AndroidDashboard extends StatelessWidget {
               status == AndroidTunnelStatus.stopped
                   ? '0'
                   : data.connections?.toString() ?? '—',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(color: colors.ink),
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(color: colors.ink),
             ),
           ),
         ],
@@ -518,63 +508,91 @@ class AndroidDashboard extends StatelessWidget {
       (AndroidDashboardTab.nodes, Icons.hub_outlined, labels.nodes),
       (AndroidDashboardTab.settings, Icons.settings_outlined, settingsLabel),
     ];
-    return Material(
-      color: colors.dock,
-      borderRadius: BorderRadius.circular(22),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(5),
-        child: Row(
-          children: [
-            for (final (destination, icon, label) in dock)
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  selected: tab == destination,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => onTabChanged(destination),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: tab == destination
-                                  ? colors.selected
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              icon,
-                              size: 22,
-                              color: tab == destination
-                                  ? colors.link
-                                  : colors.muted,
+    return Row(
+      children: [
+        Expanded(
+          child: Material(
+            color: colors.dock,
+            elevation: 5,
+            shadowColor: Colors.black.withValues(alpha: .22),
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Row(
+                children: [
+                  for (final (destination, icon, label) in dock)
+                    Expanded(
+                      child: Semantics(
+                        button: true,
+                        selected: tab == destination,
+                        child: Material(
+                          color: tab == destination
+                              ? colors.selected
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(30),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(30),
+                            onTap: () => onTabChanged(destination),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 9,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(icon, size: 23, color: colors.muted),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(color: colors.muted),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: colors.muted),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                ],
               ),
-          ],
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        SizedBox.square(
+          dimension: 68,
+          child: FloatingActionButton(
+            heroTag: null,
+            tooltip: toggleLabel,
+            elevation: 5,
+            backgroundColor: colors.button,
+            foregroundColor: Colors.white,
+            shape: const CircleBorder(),
+            onPressed: onToggle,
+            child: status == AndroidTunnelStatus.transitioning
+                ? const SizedBox.square(
+                    dimension: 23,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Icon(
+                    status == AndroidTunnelStatus.running
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    size: 34,
+                  ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -591,20 +609,18 @@ class _DashboardCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(17),
     this.onTap,
-    this.color,
   });
 
   final _DashboardColors colors;
   final Widget child;
   final EdgeInsets padding;
   final VoidCallback? onTap;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final content = Padding(padding: padding, child: child);
     return Material(
-      color: color ?? colors.card,
+      color: colors.card,
       borderRadius: BorderRadius.circular(21),
       clipBehavior: Clip.antiAlias,
       child: onTap == null ? content : InkWell(onTap: onTap, child: content),
@@ -629,9 +645,8 @@ class _CardHeading extends StatelessWidget {
         Flexible(
           child: Text(
             title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(color: colors.ink),
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(color: colors.ink),
           ),
         ),
       ],
@@ -643,16 +658,16 @@ class _DashboardColors {
   _DashboardColors(ColorScheme scheme)
     : background = scheme.brightness == Brightness.dark
           ? scheme.surface
-          : const Color(0xFFF5F8FA),
+          : const Color(0xFFF6F5FB),
       card = scheme.brightness == Brightness.dark
           ? scheme.surfaceContainer
-          : const Color(0xFFE8EFF2),
+          : const Color(0xFFEBECF8),
       dock = scheme.brightness == Brightness.dark
           ? scheme.surfaceContainerHigh
-          : const Color(0xFFE6EEF1),
+          : const Color(0xFFE6E7F3),
       selected = scheme.brightness == Brightness.dark
           ? scheme.secondaryContainer
-          : const Color(0xFFD8ECEB),
+          : const Color(0xFFDCE0FA),
       ink = scheme.brightness == Brightness.dark
           ? scheme.onSurface
           : const Color(0xFF1B1B23),
@@ -661,10 +676,10 @@ class _DashboardColors {
           : const Color(0xFF464654),
       blue = scheme.brightness == Brightness.dark
           ? scheme.primary
-          : const Color(0xFF176A82),
+          : const Color(0xFF0B50B8),
       link = scheme.brightness == Brightness.dark
           ? scheme.primary
-          : const Color(0xFF0E6470),
+          : const Color(0xFF185895),
       orange = scheme.brightness == Brightness.dark
           ? const Color(0xFFFFB785)
           : const Color(0xFF9D430D);
@@ -678,7 +693,8 @@ class _DashboardColors {
   final Color blue;
   final Color link;
   final Color orange;
-  final Color button = const Color(0xFF096B67);
+  final Color button = const Color(0xFF074AB7);
+  final Color green = const Color(0xFF158A44);
 }
 
 class _SpeedChart extends CustomPainter {
