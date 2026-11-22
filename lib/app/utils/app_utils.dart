@@ -24,7 +24,10 @@ abstract final class AppUtils {
   }
 
   static String getBuildinVersion() {
-    return "1.0.33.1905";
+    return const String.fromEnvironment(
+      'CLASHMI_BUILD_VERSION',
+      defaultValue: '1.0.33.3016',
+    );
   }
 
   static DateTime getBuildinVersionDate() {
