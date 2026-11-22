@@ -15,6 +15,11 @@ import java.io.File
 @RequiresApi(24)
 class TileService : TileService() {
     companion object {
+        private const val VPN_SERVICE = "com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService"
+        private const val ACTION_START = "com.cyenx.clashmi.clashmi_vpn_service.START"
+        private const val ACTION_STOP = "com.cyenx.clashmi.clashmi_vpn_service.STOP"
+        private const val ACTION_STATE_CHANGED = "com.cyenx.clashmi.clashmi_vpn_service.STATE_CHANGED"
+        private const val EXTRA_STATE = "state"
         const val profile_file_name = "vpn_profile.txt"
         const val service_file_name = "service.json"
     }
@@ -27,10 +32,10 @@ class TileService : TileService() {
                         intent: Intent,
                 ) {
                     when (intent.action) {
-                        com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_STATE_CHANGED ->
+                        ACTION_STATE_CHANGED ->
                                 when (
                                         intent.getStringExtra(
-                                                com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.EXTRA_STATE
+                                                EXTRA_STATE
                                         )
                                 ) {
                                     "connected" -> updateTile(true)
@@ -45,7 +50,7 @@ class TileService : TileService() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 var intentFilter = IntentFilter()
                 intentFilter.addAction(
-                        com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_STATE_CHANGED
+                        ACTION_STATE_CHANGED
                 )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED)
@@ -70,11 +75,11 @@ class TileService : TileService() {
         if (isRuning()) {
             var intent =
                     Intent().apply {
-                        action = com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_STOP
+                        action = ACTION_STOP
                     }
             intent.setClassName(
                     getPackageName(),
-                    com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService::class.java.name
+                    VPN_SERVICE
             )
             intent.putExtra("exitProcess", true)
             startService(intent)
@@ -138,11 +143,11 @@ class TileService : TileService() {
     private fun startByService() {
         var intent =
                 Intent().apply {
-                    action = com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService.ACTION_START
+                    action = ACTION_START
                 }
         intent.setClassName(
                 getPackageName(),
-                com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService::class.java.name
+                VPN_SERVICE
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -177,7 +182,7 @@ class TileService : TileService() {
 
     private fun isRuning(): Boolean =
             isServiceRuning(
-                    com.cyenx.clashmi.clashmi_vpn_service.ClashMiVpnService::class.java.name
+                    VPN_SERVICE
             )
 
     private fun isServiceRuning(serviceName: String): Boolean {
